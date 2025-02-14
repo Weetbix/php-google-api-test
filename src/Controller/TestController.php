@@ -54,14 +54,15 @@ class TestController extends AbstractController
         }
 
         try {
-            return $this->fetchGoogleSheetsList($client);
+            return $this->fetchGoogleSheetsList($client, $request);
         } catch (\Exception $e) {
             return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
-    private function fetchGoogleSheetsList(Client $client, string $query = 'test'): JsonResponse
+    private function fetchGoogleSheetsList(Client $client, Request $request): JsonResponse
     {
+        $query = $request->query->get('query', 'test');
         $service = new Drive($client);
         $q = "mimeType='application/vnd.google-apps.spreadsheet'";
         $result = [];
