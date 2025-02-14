@@ -54,31 +54,64 @@ class TestController extends AbstractController
         }
 
         try {
-            $service = new Drive($client);
-            
-            // Search for Google Sheets files with 'test' in the name
-            $optParams = [
-                'q' => "name contains 'test' and mimeType='application/vnd.google-apps.spreadsheet'",
-                'fields' => 'files(id, name, webViewLink, createdTime)',
-            ];
-            
-            $results = $service->files->listFiles($optParams);
-            
-            $files = [];
-            foreach ($results->getFiles() as $file) {
-                $files[] = [
-                    'id' => $file->getId(),
-                    'name' => $file->getName(),
-                    'url' => $file->getWebViewLink(),
-                    'created' => $file->getCreatedTime(),
-                ];
-            }
-            
-            return new JsonResponse(['files' => $files]);
-            
+            return $this->fetchGoogleSheetsList($client);
         } catch (\Exception $e) {
             return new JsonResponse(['error' => $e->getMessage()], 500);
         }
+    }
+
+    private function fetchGoogleSheetsList(Client $client, string $query = 'test'): JsonResponse
+    {
+        $service = new Drive($client);
+        $q = "mimeType='application/vnd.google-apps.spreadsheet'";
+        $result = [];
+
+        if ($query !== null) {
+            // First try to see if we have an exact file ID match, since we can't filter by ID
+            // in the listFiles call, we need to try to get the file directly
+            if (preg_match('/^[a-zA-Z0-9-_]+$/', $query)) {
+                try {
+                    $file = $service->files->get($query, [
+                        'fields' => 'id, name',
+                    ]);
+
+                    if ($file['mimeType'] === 'application/vnd.google-apps.spreadsheet') {
+                        $result[] = [
+                            'id' => $file['id'],
+                            'name' => $file['name'],
+                        ];
+                    }
+                } catch (\Exception) {
+                    // Ignore errors for ID lookup
+                }
+            }
+
+            $q .= " and name contains '{$query}'";
+        }
+
+        try {
+            $response = $service->files->listFiles([
+                'q' => $q,
+                'fields' => 'nextPageToken, files(id, name)',
+                'pageSize' => 100,
+            ]);
+
+            foreach ($response->getFiles() as $file) {
+                // Skip if we already have this file from ID lookup
+                if (!empty($result) && $result[0]['id'] === $file['id']) {
+                    continue;
+                }
+                
+                $result[] = [
+                'id' => $file['id'],
+                'name' => $file['name'],
+                ];
+            }
+        } catch (\Exception) {
+            return $result;
+        }
+
+        return new JsonResponse($result);
     }
 
     #[Route('/api/sheets/auth/callback', name: 'google_auth_callback', methods: ['GET'])]
