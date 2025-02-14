@@ -73,7 +73,7 @@ class TestController extends AbstractController
             if (preg_match('/^[a-zA-Z0-9-_]+$/', $query)) {
                 try {
                     $file = $service->files->get($query, [
-                        'fields' => 'id, name',
+                        'fields' => 'id, name, mimeType',
                     ]);
 
                     if ($file['mimeType'] === 'application/vnd.google-apps.spreadsheet') {
