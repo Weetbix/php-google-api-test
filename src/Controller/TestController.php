@@ -12,6 +12,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 
 class TestController extends AbstractController
 {
+    public const SHEET_MIME_TYPE = 'application/vnd.google-apps.spreadsheet';
+
     #[Route('/test', name: 'test')]
     public function test(): Response
     {
@@ -64,7 +66,7 @@ class TestController extends AbstractController
     {
         $query = $request->query->get('query', 'test');
         $service = new Drive($client);
-        $q = "mimeType='application/vnd.google-apps.spreadsheet'";
+        $q = "mimeType='" . self::SHEET_MIME_TYPE . "'";
         $result = [];
 
         if ($query !== null) {
@@ -76,7 +78,7 @@ class TestController extends AbstractController
                         'fields' => 'id, name, mimeType',
                     ]);
 
-                    if ($file['mimeType'] === 'application/vnd.google-apps.spreadsheet') {
+                    if ($file['mimeType'] === self::SHEET_MIME_TYPE) {
                         $result[] = [
                             'id' => $file['id'],
                             'name' => $file['name'],
